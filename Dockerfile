@@ -16,7 +16,11 @@ RUN apk update && \
 		gcc \
 		g++ \
 		git \
-		wget
+                wget \
+                boost-dev \
+                bluez-dev
+                # sqlite-dev
+                # mariadb-dev
 # Build libmodbus library
 RUN mkdir -p /build/libmodbus && \
 	git clone -b v3.1.7 https://github.com/stephane/libmodbus /build/libmodbus && \
@@ -42,6 +46,14 @@ RUN mkdir -p /build/libmodbus && \
 	make -s -C /build/aurora/ check && \
 	make -s -C /build/aurora/
 
+# Build SBFspot
+RUN cd /build && \
+        git clone https://github.com/SBFspot/SBFspot.git SBFspot.git && \
+        cd SBFspot.git && \
+#        git switch --detach V3.7.0 && \
+        cd SBFspot && \
+        make nosql
+
 FROM edofede/nginx-php-fpm:$BASEIMAGE_BRANCH
 
 COPY --from=builder \
@@ -56,10 +68,23 @@ COPY --from=builder \
 	/usr/lib/libmodbus.so.5.1.0 \
 	/usr/lib/
 
+RUN mkdir -p /usr/local/bin/sbfspot.3
+COPY --from=builder \
+        /build/SBFspot.git/SBFspot/nosql/bin/SBFspot \
+        /build/SBFspot.git/SBFspot/SBFspot.cfg \
+        /build/SBFspot.git/SBFspot/date_time_zonespec.csv \
+        /build/SBFspot.git/SBFspot/TagList*.txt \
+        /usr/local/bin/sbfspot.3/
+
 # Install required software
 RUN	apk update && \
 	apk --no-cache add \
-		rrdtool && \
+                rrdtool \
+                boost-date_time \
+                bluez-libs \
+                libstdc++ \
+                coreutils \
+                mosquitto-clients && \
 	rm -rf /var/cache/apk/* && \
 # Set local timezone
 	cp /usr/share/zoneinfo/Europe/Rome /etc/localtime
